@@ -91,6 +91,10 @@
   border-color: rgba(0, 0, 0, 0.2) transparent transparent transparent; /* Цвет и направление стрелки */
 }
 
-.show {
+.popup_window {
+  display: none;
+}
+
+.shown {
   display: block;
 }
