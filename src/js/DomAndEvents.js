@@ -109,13 +109,15 @@ export class DomAndEvents {
       const popupWindow = document.createElement("div");
       popupWindow.classList.add("popup_window", "shown");
       popupWindow.innerHTML = `
-      <form>
+      <form class="form">
         <h2>Название</h2>
-        <input type="text" name="name">
+        <input class="name" type="text" name="name">
         <h2>Стоимость</h2>
-        <input type="text" name="price">
-        <button type="submit">Сохранить</button>
-        <button class="cancel-bnt" type="button">Отмена</button>
+        <input class="price" type="text" name="price">
+        <div class="form_buttons">
+          <button type="submit">Сохранить</button>
+          <button class="cancel-bnt" type="button">Отмена</button>
+        </div>
       </form>`;
       document.body.appendChild(popupWindow);
       this.popupOnSubmit(id);
