@@ -109,7 +109,7 @@ export class DomAndEvents {
         <h2>Название</h2>
         <input type="text" name="item" required>
         <h2>Стоимость</h2>
-        <input type="text" name="price" required pattern="^[1-9]*$">
+        <input type="text" name="price" required pattern="^[1-9][0-9]*$">
         <div class="form_buttons">
           <button class="submit-btn" type="submit">Сохранить</button>
           <button class="cancel-bnt" type="button">Отмена</button>
