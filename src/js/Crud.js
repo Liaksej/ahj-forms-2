@@ -11,7 +11,7 @@ export class Crud {
     const item = vault.find((item) => item.id === id);
     if (item) {
       item.name = name;
-      item.price = price;
+      item.price = Number(price);
     } else {
       throw new Error("Item not found");
     }

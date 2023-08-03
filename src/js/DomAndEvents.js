@@ -1,10 +1,13 @@
 import { Crud } from "./Crud";
 import { vault } from "./ItemAndVault";
+import { Tooltip } from "./tooltipFabric";
 
 export class DomAndEvents {
   constructor() {
     this.crud = new Crud();
+    this.tooltip = new Tooltip();
     this.vault = vault;
+    this.actualMessages = [];
   }
 
   onClickCreateButton() {
@@ -54,59 +57,45 @@ export class DomAndEvents {
       ?.addEventListener("click", removeButtonHandler);
   }
 
-  popupOnSubmit(id = null) {
-    const popupWindowElement = document.querySelector(".form");
-    const cancelButton = popupWindowElement.querySelector(".cancel-bnt");
+  popupOnSubmit(event, id = null) {
+    if (id) {
+      this.crud.update(
+        id,
+        event.target["item"].value,
+        event.target.price.value,
+      );
 
-    const popupWindowHandler = (event) => {
-      event.preventDefault();
-      if (id) {
-        this.crud.update(
-          id,
-          event.target["item"].value,
-          event.target.price.value,
-        );
-        const rowForChange = Array.from(
-          document.querySelectorAll("tr[data-id]"),
-        ).find((item) => Number(item.dataset.id) === id);
-        rowForChange.querySelector(".item").textContent =
-          event.target["item"].value;
-        rowForChange.querySelector(".price").textContent =
-          event.target.price.value;
-      } else {
-        this.crud.create(event.target["item"].value, event.target.price.value);
+      const rowForChange = Array.from(
+        document.querySelectorAll("tr[data-id]"),
+      ).find((item) => Number(item.dataset.id) === id);
 
-        const item = document.createElement("tr");
-        item.classList.add("table_row");
-        item.dataset.id = String(this.vault.at(-1).id);
-        item.innerHTML = `
+      rowForChange.querySelector(".item").textContent =
+        event.target["item"].value;
+
+      rowForChange.querySelector(".price").textContent =
+        event.target.price.value;
+    } else {
+      this.crud.create(event.target["item"].value, event.target.price.value);
+
+      const item = document.createElement("tr");
+
+      item.classList.add("table_row");
+      item.dataset.id = String(this.vault.at(-1).id);
+
+      item.innerHTML = `
           <td class="item">${event.target["item"].value}</td>
           <td class="price">${event.target.price.value}</td>
           <td>
             <button class="update">✎</button>
             <button class="remove">X</button>
           </td>`;
-        document.querySelector(".table").appendChild(item);
-      }
-      event.target["item"].value = "";
-      event.target.price.value = "";
 
-      this.popupCreator();
-      popupWindowElement.removeEventListener("submit", popupWindowHandler);
-      cancelButton.removeEventListener("click", popupCancelHandler);
-    };
+      document.querySelector(".table").appendChild(item);
+    }
+    event.target["item"].value = "";
+    event.target.price.value = "";
 
-    const popupCancelHandler = (event) => {
-      event.preventDefault();
-      if (event.target === document.querySelector(".cancel-bnt")) {
-        this.popupCreator();
-        cancelButton.removeEventListener("click", popupCancelHandler);
-        popupWindowElement.removeEventListener("submit", popupWindowHandler);
-      }
-    };
-
-    popupWindowElement.addEventListener("submit", popupWindowHandler);
-    cancelButton?.addEventListener("click", popupCancelHandler);
+    this.popupCreator();
   }
 
   popupCreator(id = null, name = null, price = null) {
@@ -116,11 +105,11 @@ export class DomAndEvents {
       const popupWindow = document.createElement("div");
       popupWindow.classList.add("popup_window", "shown");
       popupWindow.innerHTML = `
-      <form class="form">
+      <form class="form" novalidate>
         <h2>Название</h2>
-        <input type="text" name="item">
+        <input type="text" name="item" required>
         <h2>Стоимость</h2>
-        <input type="text" name="price">
+        <input type="text" name="price" required pattern="^[1-9]*$">
         <div class="form_buttons">
           <button class="submit-btn" type="submit">Сохранить</button>
           <button class="cancel-bnt" type="button">Отмена</button>
@@ -136,9 +125,9 @@ export class DomAndEvents {
       if (id) {
         popupWindow.querySelector("input[name='item']").value = name;
         popupWindow.querySelector("input[name='price']").value = price;
-        this.popupOnSubmit(id);
+        this.tooltipLogic(id);
       } else {
-        this.popupOnSubmit();
+        this.tooltipLogic();
       }
     }
   }
@@ -158,23 +147,23 @@ export class DomAndEvents {
       this.deletePopup();
 
       deletePopupElement.removeEventListener("submit", popupWindowHandler);
-      cancelDeleteButton.removeEventListener("click", deletPopupCancelHandler);
+      cancelDeleteButton.removeEventListener("click", deletePopupCancelHandler);
     };
 
-    const deletPopupCancelHandler = (event) => {
+    const deletePopupCancelHandler = (event) => {
       event.preventDefault();
       if (event.target === deletePopupElement.querySelector(".cancel-bnt")) {
         this.deletePopup();
         cancelDeleteButton.removeEventListener(
           "click",
-          deletPopupCancelHandler,
+          deletePopupCancelHandler,
         );
         deletePopupElement.removeEventListener("submit", popupWindowHandler);
       }
     };
 
     deletePopupElement.addEventListener("submit", popupWindowHandler);
-    cancelDeleteButton.addEventListener("click", deletPopupCancelHandler);
+    cancelDeleteButton.addEventListener("click", deletePopupCancelHandler);
   }
 
   deletePopup(itemForDelete) {
@@ -197,5 +186,123 @@ export class DomAndEvents {
     if (itemForDelete) {
       this.deletePopupOnSubmit(itemForDelete);
     }
+  }
+
+  tooltipLogic(elementID = null) {
+    const form = document.querySelector(".form");
+    const cancelButton = form.querySelector(".cancel-bnt");
+
+    const errors = {
+      item: {
+        valueMissing: "Нам потребуется название...",
+      },
+      price: {
+        valueMissing: "Нам потребуется стоимость...",
+        patternMismatch: "Цена должна быть положительным числом",
+      },
+    };
+
+    const showTooltip = (message, el) => {
+      this.actualMessages.push({
+        name: el.name,
+        id: this.tooltip.showTooltip(message, el),
+      });
+    };
+
+    const getError = (el) => {
+      const errorKey = Object.keys(ValidityState.prototype).find((key) => {
+        if (!el.name) return;
+        if (key === "valid") return;
+
+        return el.validity[key];
+      });
+
+      if (!errorKey) return;
+
+      return errors[el.name][errorKey];
+    };
+
+    const popupCancelHandler = (event) => {
+      event.preventDefault();
+      if (event.target === document.querySelector(".cancel-bnt")) {
+        this.popupCreator();
+
+        this.actualMessages.forEach((message) =>
+          this.tooltip.removeTooltip(message.id),
+        );
+        this.actualMessages = [];
+
+        cancelButton.removeEventListener("click", popupCancelHandler);
+        form.removeEventListener("submit", formSubmitEventHandler);
+      }
+    };
+
+    cancelButton.addEventListener("click", popupCancelHandler);
+
+    const formSubmitEventHandler = (e) => {
+      e.preventDefault();
+
+      this.actualMessages.forEach((message) =>
+        this.tooltip.removeTooltip(message.id),
+      );
+      this.actualMessages = [];
+
+      const elements = form.elements;
+
+      Array.from(elements).some((elem) => {
+        const error = getError(elem);
+
+        if (error) {
+          showTooltip(error, elem);
+          return true;
+        }
+        return false;
+      });
+
+      if (form.checkValidity()) {
+        console.log("valid");
+        console.log("submit");
+
+        this.popupOnSubmit(e, elementID);
+        cancelButton.removeEventListener("click", popupCancelHandler);
+        form.removeEventListener("submit", formSubmitEventHandler);
+        Array.from(form.elements).forEach((el) =>
+          el.removeEventListener("focus", elementBlurCallback),
+        );
+      }
+    };
+
+    form.addEventListener("submit", formSubmitEventHandler);
+
+    const elementOnBlur = (e) => {
+      const el = e.target;
+
+      const error = getError(el);
+
+      const currentErrorMessage = this.actualMessages.find(
+        (item) => item.name === el.name,
+      );
+
+      if (error) {
+        if (!currentErrorMessage) {
+          showTooltip(error, el);
+        }
+      } else {
+        if (currentErrorMessage) {
+          this.tooltip.removeTooltip(currentErrorMessage.id);
+          this.actualMessages.splice(
+            this.actualMessages.indexOf(currentErrorMessage.id),
+            1,
+          );
+        }
+      }
+    };
+
+    const elementBlurCallback = (el) =>
+      el.addEventListener("blur", elementOnBlur);
+
+    Array.from(form.elements).forEach((el) =>
+      el.addEventListener("focus", elementBlurCallback(el)),
+    );
   }
 }
